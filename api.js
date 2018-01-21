@@ -92,12 +92,14 @@ module.exports = require("babel-polyfill");
 
 var express = __webpack_require__(0);
 var bodyParser = __webpack_require__(4);
+var cors = __webpack_require__(5);
 
-var device = __webpack_require__(5);
-var metric = __webpack_require__(8);
+var device = __webpack_require__(6);
+var metric = __webpack_require__(9);
 
 var app = express();
 app.use(bodyParser.json());
+app.use(cors());
 
 app.use('/api/device', device);
 app.use('/api/metric', metric);
@@ -114,6 +116,12 @@ module.exports = require("body-parser");
 
 /***/ }),
 /* 5 */
+/***/ (function(module, exports) {
+
+module.exports = require("cors");
+
+/***/ }),
+/* 6 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -121,7 +129,7 @@ module.exports = require("body-parser");
 
 var express = __webpack_require__(0);
 var router = express.Router();
-var uuid = __webpack_require__(6);
+var uuid = __webpack_require__(7);
 // var Util = require('../util/util');
 
 var device = express();
@@ -130,7 +138,7 @@ router.get('/', function (req, res) {
     if (!connectionString) {
         res.sendStatus(400);
     }
-    var Registry = __webpack_require__(7).Registry.fromConnectionString(connectionString);
+    var Registry = __webpack_require__(8).Registry.fromConnectionString(connectionString);
     Registry.list(function (err, deviceList) {
         if (err) {
             res.status(500).send('Could not trigger job: ' + err.message);
@@ -150,19 +158,19 @@ router.get('/', function (req, res) {
 module.exports = router;
 
 /***/ }),
-/* 6 */
+/* 7 */
 /***/ (function(module, exports) {
 
 module.exports = require("uuid");
 
 /***/ }),
-/* 7 */
+/* 8 */
 /***/ (function(module, exports) {
 
 module.exports = require("azure-iothub");
 
 /***/ }),
-/* 8 */
+/* 9 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -170,9 +178,9 @@ module.exports = require("azure-iothub");
 
 var express = __webpack_require__(0);
 var router = express.Router();
-var request = __webpack_require__(9);
-var node_util = __webpack_require__(10);
-var config = __webpack_require__(11);
+var request = __webpack_require__(10);
+var node_util = __webpack_require__(11);
+var config = __webpack_require__(12);
 // var Util = require('../util/util');
 // var apicache = require('apicache');
 
@@ -279,19 +287,19 @@ router.get('/', function (req, res) {
 module.exports = router;
 
 /***/ }),
-/* 9 */
+/* 10 */
 /***/ (function(module, exports) {
 
 module.exports = require("request");
 
 /***/ }),
-/* 10 */
+/* 11 */
 /***/ (function(module, exports) {
 
 module.exports = require("util");
 
 /***/ }),
-/* 11 */
+/* 12 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
