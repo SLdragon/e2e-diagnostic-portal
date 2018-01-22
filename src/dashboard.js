@@ -512,32 +512,27 @@ class Dashboard extends Component {
 
   render() {
     let ff = "Segoe UI";
-    let leftPadding = 100;
-    let rightPadding = 400;
-    let timePicker = 200;
-    let ch = window.innerHeight;
-    let cw = window.innerWidth - leftPadding - rightPadding;
-    if (cw > 1422) {
-      let space = cw - 1422;
-      leftPadding += space / 2;
-      rightPadding += space / 2;
-      cw -= space;
-    }
-    let bw = cw * 0.2222 * 0.9;
+    let ch = window.innerHeight; // canvas height
+    let cw = window.innerWidth - 50; // canvas width (minus sidebar)
+    let sf = cw / 1922; // scale factor
+
+    // 1/2 left padding | 1 b1 | 1 b2 | 1 b3 | 1 right padding
+    let bw = cw / 4.5 * 2 / 3;
     let bw_small = bw * 0.8;
-    let lineSpace = (cw - bw * 2 - bw_small) / 2;
-    let bh = 100;
-    let b2h = 120;
-    let b1x = leftPadding;
-    let b1y = ch / 2 - bh / 2;
-    let b2x = leftPadding + bw + lineSpace;
-    let b3x = b2x + bw + lineSpace;
-    let btpw = 120;
-    let btph = 40;
-    let btpx = cw + leftPadding + (rightPadding - btpw) / 2;
-    let tfs = 25;
-    let t2fs = 15;
-    let lw = 50;
+    let tpw = bw * 0.5;
+    let lineSpace = (cw * 2 / 3 - bw * 2 - bw_small) / 2;
+    let bh = ch / 8;
+    let b2h = cw / 8 *1.2;
+    let b1x = cw / 4.5;
+    let b1y = ch / 2;
+    let b2x = cw * 2 /4.5;
+    let b3x = cw*3/4.5;
+    let btpw = cw * 0.5/4.5;
+    let btph = ch / 24;
+    let btpx = cw *4/4.5;
+    let tfs = 25 * sf;
+    let t2fs = 15 * sf;
+    let lw = bh * 0.5;
 
     let leftLinex1 = b1x + bw;
     let leftLinex3 = b2x;
@@ -566,7 +561,7 @@ class Dashboard extends Component {
           (styles) => {
             return <Group>
               {styles.map(style => <Group key={style.data.name}><Rect
-                x={b1x}
+                x={b1x - bw/2}
                 y={style.style.y}
                 width={bw}
                 height={style.style.height}
@@ -576,7 +571,7 @@ class Dashboard extends Component {
                 cornerRadius={5}
               />
                 <Path
-                  x={b1x + 20}
+                  x={b1x - bw * 0.35 - lw * 0.5}
                   y={style.style.y + (style.style.height - lw) / 2}
                   fill="#0072c6"
                   data={SvgChip}
@@ -587,7 +582,7 @@ class Dashboard extends Component {
                   }}
                 />
                 <Text
-                  x={b1x + 20 + lw + 20}
+                  x={b1x - 0.15*bw}
                   y={style.style.y + (style.style.height - (tfs + t2fs * 2 + 10)) / 2}
                   fontSize={tfs}
                   height={tfs}
@@ -597,7 +592,7 @@ class Dashboard extends Component {
                 />
 
                 <Text
-                  x={b1x + 20 + lw + 20}
+                  x={b1x - 0.15*bw}
                   y={style.style.y + (style.style.height - (tfs + t2fs * 2 + 10)) / 2 + tfs + 5}
                   fontSize={t2fs}
                   height={t2fs}
@@ -606,7 +601,7 @@ class Dashboard extends Component {
                 />
 
                 <Text
-                  x={b1x + 20 + lw + 20}
+                  x={b1x - 0.15*bw}
                   y={style.style.y + (style.style.height - (tfs + t2fs * 2 + 10)) / 2 + tfs + 5 + t2fs + 5}
                   fontSize={t2fs}
                   height={t2fs}
@@ -728,8 +723,9 @@ class Dashboard extends Component {
     </Group>;
 
     return (
-      <Stage ref={input => { this.stageRef = input; }} width={window.innerWidth} height={window.innerHeight}>
+      <Stage ref={input => { this.stageRef = input; }} width={window.innerWidth} height={window.innerHeight} >
         <Layer>
+          <Line stroke="black" points={[0,0,100,100]}/>
           {devices}
           <Group>
             <Rect
