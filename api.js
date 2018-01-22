@@ -105,7 +105,7 @@ app.use('/api/device', device);
 app.use('/api/metric', metric);
 
 app.listen(process.env.PORT || 3001, null, null, function () {
-  console.log('listening on ' + process.env.PORT || 3001);
+  console.log('listening on ' + (process.env.PORT || 3001));
 });
 
 /***/ }),
