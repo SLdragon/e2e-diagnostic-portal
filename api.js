@@ -218,7 +218,7 @@ var restUrl = "https://api.applicationinsights.io/v1/apps/%s/query?timespan=P7D&
 
 router.get('/', function (req, res) {
   if (process.env.EXPIRE) {
-    var expiration = process.env.EXPIRE;
+    var expiration = process.env.EXPIRE.substring(1, 25);
     var initDate = req.query.init;
     if (!initDate || initDate < expiration) {
       res.json({
