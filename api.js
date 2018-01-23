@@ -60,7 +60,7 @@
 /******/ 	__webpack_require__.p = "";
 /******/
 /******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = 1);
+/******/ 	return __webpack_require__(__webpack_require__.s = 2);
 /******/ })
 /************************************************************************/
 /******/ ([
@@ -71,31 +71,37 @@ module.exports = require("express");
 
 /***/ }),
 /* 1 */
-/***/ (function(module, exports, __webpack_require__) {
+/***/ (function(module, exports) {
 
-__webpack_require__(2);
-module.exports = __webpack_require__(3);
-
+module.exports = require("apicache");
 
 /***/ }),
 /* 2 */
+/***/ (function(module, exports, __webpack_require__) {
+
+__webpack_require__(3);
+module.exports = __webpack_require__(4);
+
+
+/***/ }),
+/* 3 */
 /***/ (function(module, exports) {
 
 module.exports = require("babel-polyfill");
 
 /***/ }),
-/* 3 */
+/* 4 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
 var express = __webpack_require__(0);
-var bodyParser = __webpack_require__(4);
-var cors = __webpack_require__(5);
+var bodyParser = __webpack_require__(5);
+var cors = __webpack_require__(6);
 
-var device = __webpack_require__(6);
-var metric = __webpack_require__(9);
+var device = __webpack_require__(7);
+var metric = __webpack_require__(10);
 
 var app = express();
 app.use(bodyParser.json());
@@ -109,19 +115,19 @@ app.listen(process.env.PORT || 3001, null, null, function () {
 });
 
 /***/ }),
-/* 4 */
+/* 5 */
 /***/ (function(module, exports) {
 
 module.exports = require("body-parser");
 
 /***/ }),
-/* 5 */
+/* 6 */
 /***/ (function(module, exports) {
 
 module.exports = require("cors");
 
 /***/ }),
-/* 6 */
+/* 7 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -129,48 +135,49 @@ module.exports = require("cors");
 
 var express = __webpack_require__(0);
 var router = express.Router();
-var uuid = __webpack_require__(7);
+var uuid = __webpack_require__(8);
+var apicache = __webpack_require__(1);
 // var Util = require('../util/util');
 
 var device = express();
-router.get('/', function (req, res) {
-    var connectionString = 'HostName=E2Ediagnostics.azure-devices.net;SharedAccessKeyName=iothubowner;SharedAccessKey=JQPTdBXSHrVWjQSOIEf1nBVG1uHtDL9f7dEzVcdoyTM=';
-    if (!connectionString) {
-        res.sendStatus(400);
+router.get('/', apicache.middleware('2 seconds'), function (req, res) {
+  var connectionString = 'HostName=E2Ediagnostics.azure-devices.net;SharedAccessKeyName=iothubowner;SharedAccessKey=JQPTdBXSHrVWjQSOIEf1nBVG1uHtDL9f7dEzVcdoyTM=';
+  if (!connectionString) {
+    res.sendStatus(400);
+  }
+  var Registry = __webpack_require__(9).Registry.fromConnectionString(connectionString);
+  Registry.list(function (err, deviceList) {
+    if (err) {
+      res.status(500).send('Could not trigger job: ' + err.message);
+    } else {
+      var connectedNum = 0;
+      deviceList.forEach(function (device) {
+        if (device.connectionState === "Connected") connectedNum++;
+      });
+      res.send({
+        registered: deviceList.length,
+        connected: connectedNum
+      });
     }
-    var Registry = __webpack_require__(8).Registry.fromConnectionString(connectionString);
-    Registry.list(function (err, deviceList) {
-        if (err) {
-            res.status(500).send('Could not trigger job: ' + err.message);
-        } else {
-            var connectedNum = 0;
-            deviceList.forEach(function (device) {
-                if (device.connectionState === "Connected") connectedNum++;
-            });
-            res.send({
-                registered: deviceList.length,
-                connected: connectedNum
-            });
-        }
-    });
+  });
 });
 
 module.exports = router;
 
 /***/ }),
-/* 7 */
+/* 8 */
 /***/ (function(module, exports) {
 
 module.exports = require("uuid");
 
 /***/ }),
-/* 8 */
+/* 9 */
 /***/ (function(module, exports) {
 
 module.exports = require("azure-iothub");
 
 /***/ }),
-/* 9 */
+/* 10 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -178,11 +185,11 @@ module.exports = require("azure-iothub");
 
 var express = __webpack_require__(0);
 var router = express.Router();
-var request = __webpack_require__(10);
-var node_util = __webpack_require__(11);
-var config = __webpack_require__(12);
+var request = __webpack_require__(11);
+var node_util = __webpack_require__(12);
+var config = __webpack_require__(13);
 // var Util = require('../util/util');
-// var apicache = require('apicache');
+var apicache = __webpack_require__(1);
 
 var startOfTimestamp = new Date(config.startTime);
 var kustoQuery = 'customEvents | where name == \'E2EDIAGNOSTICS\' and timestamp >= ago(7d) and todatetime(tostring(customDimensions[\'time\'])) >= datetime(\'%s\') and todatetime(tostring(customDimensions[\'time\'])) <= datetime(\'%s\') | project customDimensions';
@@ -296,19 +303,19 @@ router.get('/', function (req, res) {
 module.exports = router;
 
 /***/ }),
-/* 10 */
+/* 11 */
 /***/ (function(module, exports) {
 
 module.exports = require("request");
 
 /***/ }),
-/* 11 */
+/* 12 */
 /***/ (function(module, exports) {
 
 module.exports = require("util");
 
 /***/ }),
-/* 12 */
+/* 13 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
