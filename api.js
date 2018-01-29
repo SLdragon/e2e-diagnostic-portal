@@ -112,7 +112,7 @@ module.exports = require("babel-polyfill");
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
-
+/* WEBPACK VAR INJECTION */(function(__dirname) {
 
 var express = __webpack_require__(0);
 var bodyParser = __webpack_require__(7);
@@ -130,12 +130,13 @@ app.use('/api/device', device);
 app.use('/api/metric', metric);
 
 app.get('/', function (req, res) {
-  res.sendFile('./index.html');
+  res.sendFile('index.html', __dirname);
 });
 
 app.listen(process.env.PORT || 3001, null, null, function () {
   console.log('listening on ' + process.env.PORT || 3001);
 });
+/* WEBPACK VAR INJECTION */}.call(exports, "/"))
 
 /***/ }),
 /* 7 */
