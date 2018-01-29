@@ -60,7 +60,7 @@
 /******/ 	__webpack_require__.p = "";
 /******/
 /******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = 2);
+/******/ 	return __webpack_require__(__webpack_require__.s = 4);
 /******/ })
 /************************************************************************/
 /******/ ([
@@ -71,37 +71,56 @@ module.exports = require("express");
 
 /***/ }),
 /* 1 */
-/***/ (function(module, exports) {
+/***/ (function(module, exports, __webpack_require__) {
 
-module.exports = require("apicache");
+"use strict";
+
+
+module.exports = {
+    apiDomain: '',
+    apiPort: 3001
+};
 
 /***/ }),
 /* 2 */
-/***/ (function(module, exports, __webpack_require__) {
+/***/ (function(module, exports) {
 
-__webpack_require__(3);
-module.exports = __webpack_require__(4);
-
+module.exports = require("memory-cache");
 
 /***/ }),
 /* 3 */
 /***/ (function(module, exports) {
 
-module.exports = require("babel-polyfill");
+module.exports = require("express-queue");
 
 /***/ }),
 /* 4 */
+/***/ (function(module, exports, __webpack_require__) {
+
+__webpack_require__(5);
+module.exports = __webpack_require__(6);
+
+
+/***/ }),
+/* 5 */
+/***/ (function(module, exports) {
+
+module.exports = require("babel-polyfill");
+
+/***/ }),
+/* 6 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
 var express = __webpack_require__(0);
-var bodyParser = __webpack_require__(5);
-var cors = __webpack_require__(6);
+var bodyParser = __webpack_require__(7);
+var cors = __webpack_require__(8);
+var cfg = __webpack_require__(1);
 
-var device = __webpack_require__(7);
-var metric = __webpack_require__(10);
+var device = __webpack_require__(9);
+var metric = __webpack_require__(12);
 
 var app = express();
 app.use(bodyParser.json());
@@ -111,23 +130,23 @@ app.use('/api/device', device);
 app.use('/api/metric', metric);
 
 app.listen(process.env.PORT || 3001, null, null, function () {
-  console.log('listening on ' + (process.env.PORT || 3001));
+  console.log('listening on ' + process.env.PORT || 3001);
 });
 
 /***/ }),
-/* 5 */
+/* 7 */
 /***/ (function(module, exports) {
 
 module.exports = require("body-parser");
 
 /***/ }),
-/* 6 */
+/* 8 */
 /***/ (function(module, exports) {
 
 module.exports = require("cors");
 
 /***/ }),
-/* 7 */
+/* 9 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -135,12 +154,21 @@ module.exports = require("cors");
 
 var express = __webpack_require__(0);
 var router = express.Router();
-var uuid = __webpack_require__(8);
-var apicache = __webpack_require__(1);
-// var Util = require('../util/util');
+var uuid = __webpack_require__(10);
+var cache = __webpack_require__(2);
+var queue = __webpack_require__(3);
 
-var device = express();
-router.get('/', apicache.middleware('2 seconds'), function (req, res) {
+var requestNum = 0;
+var cacheMissNum = 0;
+
+router.get('/', queue({ activeLimit: 1, queuedLimit: -1 }), function (req, res) {
+  requestNum++;
+  var cachedDevice = cache.get('device');
+  if (cachedDevice) {
+    res.send(cachedDevice);
+    return;
+  }
+  cacheMissNum++;
   if (process.env.EXPIRE) {
     var expiration = process.env.EXPIRE;
     var initDate = req.query.init;
@@ -153,12 +181,17 @@ router.get('/', apicache.middleware('2 seconds'), function (req, res) {
       return;
     }
   }
-  var connectionString = 'HostName=E2Ediagnostics.azure-devices.net;SharedAccessKeyName=iothubowner;SharedAccessKey=JQPTdBXSHrVWjQSOIEf1nBVG1uHtDL9f7dEzVcdoyTM=';
+  var connectionString = process.env.IOTHUB_CONNECTION_STRING;
   if (!connectionString) {
-    res.sendStatus(400);
+    res.sendStatus(500).send('Connection string is not specified.');
     return;
   }
-  var Registry = __webpack_require__(9).Registry.fromConnectionString(connectionString);
+  var m = connectionString.match(/HostName=([^\.]*)\.azure\-devices\.net/);
+  var iothubName = void 0;
+  if (m) {
+    iothubName = m[1];
+  }
+  var Registry = __webpack_require__(11).Registry.fromConnectionString(connectionString);
   Registry.list(function (err, deviceList) {
     if (err) {
       res.status(500).send('Could not trigger job: ' + err.message);
@@ -168,30 +201,40 @@ router.get('/', apicache.middleware('2 seconds'), function (req, res) {
       deviceList.forEach(function (device) {
         if (device.connectionState === "Connected") connectedNum++;
       });
-      res.send({
+      var result = {
         registered: deviceList.length,
-        connected: connectedNum
-      });
+        connected: connectedNum,
+        iothub: iothubName
+      };
+      cache.put('device', result, 5000);
+      res.send(result);
     }
+  });
+});
+
+router.get('/debug', function (req, res) {
+  res.json({
+    requestNum: requestNum,
+    cacheMissNum: cacheMissNum
   });
 });
 
 module.exports = router;
 
 /***/ }),
-/* 8 */
+/* 10 */
 /***/ (function(module, exports) {
 
 module.exports = require("uuid");
 
 /***/ }),
-/* 9 */
+/* 11 */
 /***/ (function(module, exports) {
 
 module.exports = require("azure-iothub");
 
 /***/ }),
-/* 10 */
+/* 12 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -199,24 +242,36 @@ module.exports = require("azure-iothub");
 
 var express = __webpack_require__(0);
 var router = express.Router();
-var request = __webpack_require__(11);
-var node_util = __webpack_require__(12);
-var config = __webpack_require__(13);
+var request = __webpack_require__(13);
+var node_util = __webpack_require__(14);
+var config = __webpack_require__(1);
 // var Util = require('../util/util');
-var apicache = __webpack_require__(1);
+var queue = __webpack_require__(3);
+var cache = __webpack_require__(2);
+var storage = __webpack_require__(15);
 
 var startOfTimestamp = new Date(config.startTime);
-var kustoQuery = 'customEvents | where name == \'E2EDIAGNOSTICS\' and timestamp >= ago(7d) and todatetime(tostring(customDimensions[\'time\'])) >= datetime(\'%s\') and todatetime(tostring(customDimensions[\'time\'])) <= datetime(\'%s\') | project customDimensions';
+var kustoQuery = 'customEvents | where name == \'E2EDiagnostics\' and timestamp >= ago(1d) and todatetime(tostring(customDimensions[\'time\'])) >= datetime(\'%s\') and todatetime(tostring(customDimensions[\'time\'])) <= datetime(\'%s\') | project customDimensions';
 var restUrl = "https://api.applicationinsights.io/v1/apps/%s/query?timespan=P7D&query=%s";
+var blobUrlTemplate = "resourceId=/SUBSCRIPTIONS/%s/RESOURCEGROUPS/%s/PROVIDERS/MICROSOFT.DEVICES/IOTHUBS/%s/y=%s/m=%s/d=%s/h=%s/m=00/PT1H.json";
+var kustoUrlTemplate = 'https://analytics.applicationinsights.io/subscriptions/%s/resourcegroups/%s/components/%s?q=%s&apptype=other&timespan=P1D';
+var containerName = 'insights-logs-e2ediagnostics';
+var cacheSpanInMinutes = 1;
+var defaultSpanForRefreshInMinutes = 20;
+
+var requestNum = 0;
+var cacheMissNum = 0;
+
+var blobSvc = process.env.STORAGE_CONNECTION_STRING ? storage.createBlobService(process.env.STORAGE_CONNECTION_STRING) : null;
 // var e2ePath = 'customEvents/E2EDIAGNOSTICS';
-// var kustoPath = 'https://analytics.applicationinsights.io%s/components/%s';
 /* GET home page. */
 
 // router.get('/kusto', function(req, res) {
 //     res.redirect(node_util.format(kustoPath,process.env.RESOURCE_GROUP_NAME,process.env.APPLICATION_INSIGHTS_NAME));
 // });
 
-router.get('/', function (req, res) {
+function handle(req, res, init) {
+  if (!init) requestNum++;
   if (process.env.EXPIRE) {
     var expiration = process.env.EXPIRE.substring(1, 25);
     var initDate = req.query.init;
@@ -228,135 +283,263 @@ router.get('/', function (req, res) {
       return;
     }
   }
-  var appId = '28192abf-e335-4044-ae29-47bbfac72ddd'; //Util.getAppId();
-  if (!appId) {
-    res.status(500).send("App id missing");
+
+  var span = void 0;
+  if (init) {
+    span = parseInt(req.query.span);
+    if (span == undefined) {
+      res.status(500).send("span is not provided");
+      return;
+    }
+  } else {
+    span = defaultSpanForRefreshInMinutes;
+    var cachedData = cache.get('metric');
+    if (cachedData) {
+      res.send(cachedData);
+      return;
+    } else {
+      cacheMissNum++;
+    }
+  }
+
+  var appId = process.env.AI_APP_ID;
+  var apiKey = process.env.AI_API_KEY;
+  var storageCs = process.env.STORAGE_CONNECTION_STRING;
+  var storageSubscriptionId = process.env.SUBSCRIPTION_ID;
+  var storageResourceGroupName = process.env.RESOURCE_GROUP_NAME;
+  var iothubConnectionString = process.env.IOTHUB_CONNECTION_STRING;
+  if (!iothubConnectionString) {
+    res.sendStatus(500).send('Connection string is not specified.');
     return;
   }
-  var start = parseInt(req.query.start);
-  var end = parseInt(req.query.end);
-  if (start == undefined || end == undefined) {
-    res.status(500).send("start or end is not provided");
+  var m = iothubConnectionString.match(/HostName=([^\.]*)\.azure\-devices\.net/);
+  var storageIoTHubName = void 0;
+  if (m) {
+    storageIoTHubName = m[1];
+  } else {
+    res.sendStatus(500).send('IoT Hub Connection string format error.');
     return;
   }
-  var key = process.env.API_KEY;
-  if (!key) {
-    res.status(500).send("api key is not specified");
+
+  var callback = function callback(source, err, data) {
+    if (err) {
+      res.json({
+        value: [],
+        error: err.message,
+        source: source
+      });
+      return;
+    } else {
+      if (!init) {
+        cache.put('metric', {
+          value: data
+        }, cacheSpanInMinutes * 60 * 1000);
+      }
+      res.json({
+        value: data,
+        source: source
+      });
+    }
+  };
+
+  if (appId && apiKey) {
+    getAIData(appId, apiKey, span, callback.bind(null, 'ai'));
+  } else if (storageCs && storageSubscriptionId && storageResourceGroupName && storageIoTHubName) {
+    getStorageData(storageCs, storageSubscriptionId, storageResourceGroupName, storageIoTHubName, span, callback.bind(null, 'storage'));
+  } else {
+    res.status(500).send("You must provide at least one of credential of AI/storage");
     return;
   }
-  var startDate = new Date(startOfTimestamp.getTime());
-  var endDate = new Date(startOfTimestamp.getTime());
-  startDate.setSeconds(startDate.getSeconds() + start);
-  endDate.setSeconds(endDate.getSeconds() + end);
-  request(node_util.format(restUrl, appId, encodeURIComponent(node_util.format(kustoQuery, startDate.toISOString(), endDate.toISOString()))), {
+}
+
+function getAIData(appId, apiKey, span, callback) {
+  var now = new Date();
+  var start = new Date();
+  start.setMinutes(start.getMinutes() - span);
+  request(node_util.format(restUrl, appId, encodeURIComponent(node_util.format(kustoQuery, start.toISOString(), now.toISOString()))), {
     headers: {
-      "x-api-key": key
+      "x-api-key": apiKey
     }
   }, function (err, response, body) {
     if (err) {
-      res.status(500).send(err.message);
+      if (callback) {
+        callback(e, null);
+      }
       return;
     }
-    console.log(body);
     try {
       body = JSON.parse(body);
-      var result = {};
-      // result.count = body['@odata.count'];
-      result.value = body.tables[0].rows.length === 0 ? [] : body.tables[0].rows.map(function (row) {
+      var result = body.tables[0].rows.length === 0 ? [] : body.tables[0].rows.map(function (row) {
         return JSON.parse(row[0]);
       });
-      res.json(result);
+      if (callback) {
+        callback(null, result);
+      }
     } catch (e) {
-      res.json({
-        value: [],
-        error: e.message
-      });
+      if (callback) {
+        callback(e, null);
+      }
     }
   });
+}
 
-  // var result = {};
-  // var counter = 5;
-  // request(node_util.format(restUrl, appId, d2cPath, param,'avg,count,max'), {
-  //     headers: {
-  //         "x-api-key": keys[0]
-  //     }
-  // }, apiCallback.bind(this, resolve, reject, 'd2c_success',d2cPath,'avg,count,max'));
+function getStorageData(cs, storageSubscriptionId, storageResourceGroupName, storageIoTHubName, span, callback) {
+  var now = new Date();
+  var start = new Date();
+  start.setMinutes(start.getMinutes() - span);
+  var promises = [];
+  var entryName = node_util.format(blobUrlTemplate, storageSubscriptionId.toUpperCase(), storageResourceGroupName.toUpperCase(), storageIoTHubName.toUpperCase(), now.getUTCFullYear(), fillZero(now.getUTCMonth() + 1), fillZero(now.getUTCDate()), fillZero(now.getUTCHours()));
+  promises.push(_getStorageData(containerName, entryName));
+  if (now.getUTCHours() !== start.getUTCHours()) {
+    var _entryName = node_util.format(blobUrlTemplate, storageSubscriptionId.toUpperCase(), storageResourceGroupName.toUpperCase(), storageIoTHubName.toUpperCase(), start.getUTCFullYear(), fillZero(start.getUTCMonth() + 1), fillZero(start.getUTCDate()), fillZero(start.getUTCHours()));
+    promises.push(_getStorageData(containerName, _entryName));
+  }
 
-  // request(node_util.format(restUrl, appId, saPath, param,'avg,count,max'), {
-  //     headers: {
-  //         "x-api-key": keys[1]
-  //     }
-  // }, apiCallback.bind(this, resolve, reject, 'sa_success',saPath,'avg,count,max'));
+  Promise.all(promises).then(function (results) {
+    var finalResults = [];
+    var _iteratorNormalCompletion = true;
+    var _didIteratorError = false;
+    var _iteratorError = undefined;
 
-  // request(node_util.format(restUrl, appId, funcPath, param,'avg,count,max'), {
-  //     headers: {
-  //         "x-api-key": keys[2]
-  //     }
-  // }, apiCallback.bind(this, resolve, reject, 'func_success',funcPath,'avg,count,max'));
+    try {
+      for (var _iterator = results[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+        var result = _step.value;
+        var _iteratorNormalCompletion2 = true;
+        var _didIteratorError2 = false;
+        var _iteratorError2 = undefined;
 
-  // request(node_util.format(restUrl, appId, saFailurePath, param,'sum'), {
-  //     headers: {
-  //         "x-api-key": keys[3]
-  //     }
-  // }, apiCallback.bind(this, resolve, reject, 'sa_failure_count',saFailurePath,'sum'));
+        try {
+          for (var _iterator2 = result[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+            var record = _step2.value;
 
-  // request(node_util.format(restUrl, appId, funcFailurePath, param,'sum'), {
-  //     headers: {
-  //         "x-api-key": keys[4]
-  //     }
-  // }, apiCallback.bind(this, resolve, reject, 'func_failure_count',funcFailurePath,'sum'));
+            var date = new Date(record.time);
+            if (date >= start && date <= now) {
+              finalResults.push(record);
+            }
+          }
+        } catch (err) {
+          _didIteratorError2 = true;
+          _iteratorError2 = err;
+        } finally {
+          try {
+            if (!_iteratorNormalCompletion2 && _iterator2.return) {
+              _iterator2.return();
+            }
+          } finally {
+            if (_didIteratorError2) {
+              throw _iteratorError2;
+            }
+          }
+        }
+      }
+    } catch (err) {
+      _didIteratorError = true;
+      _iteratorError = err;
+    } finally {
+      try {
+        if (!_iteratorNormalCompletion && _iterator.return) {
+          _iterator.return();
+        }
+      } finally {
+        if (_didIteratorError) {
+          throw _iteratorError;
+        }
+      }
+    }
 
-  //   function apiCallback(resolve, reject, key, path, type, error, response, body) {
-  //     console.log('callback called');
-  //     body = JSON.parse(body);
-  //     if (error) {
-  //       reject(error);
-  //     } else if (response.statusCode != 200) {
-  //       reject("Invalid status code " + response.statusCode);
-  //     } else {
-  //       var types = type.split(",");
-  //       result[key] = {};
-  //       for (var i in types) {
-  //         result[key][types[i]] = body.value[path][types[i]];
-  //       }
-  //     }
-  //     counter--;
-  //     if (counter == 0) {
-  //       resolve(result);
-  //     }
-  //   }
-  // }).then((result) => {
-  //   res.send(result);
-  // }).catch((error) => {
-  //   res.status(500).send(error);
-  // });
+    if (callback) callback(null, finalResults);
+  }).catch(function (err) {
+    if (callback) callback(err, null);
+  });
+}
+
+function _getStorageData(containerName, entryName) {
+  return new Promise(function (resolve, reject) {
+    if (blobSvc == null) {
+      reject('Storage connection string is not specified.');
+    }
+    blobSvc.getBlobToText(containerName, entryName, function (error, blobContent, blob) {
+      if (error) {
+        if (error.message.startsWith("The specified blob does not exist.")) {
+          resolve([]);
+        } else {
+          reject(error);
+        }
+      } else {
+        var records = JSON.parse(blobContent).records;
+        resolve(records);
+      }
+    });
+  });
+}
+
+function fillZero(value) {
+  if (value < 10) {
+    return '0' + value;
+  }
+  return '' + value;
+}
+
+router.get('/', queue({ activeLimit: 1, queuedLimit: -1 }), function (req, res) {
+  handle(req, res, false);
+});
+
+router.get('/init', function (req, res) {
+  handle(req, res, true);
+});
+
+router.get('/kusto', function (req, res) {
+  var query = req.query.query;
+  if (!query) {
+    res.status(500).send('Query not specified');
+    return;
+  }
+  var subscriptionId = process.env.SUBSCRIPTION_ID;
+  var resourceGroupName = process.env.RESOURCE_GROUP_NAME;
+  var aiName = process.env.AI_NAME;
+  if (!subscriptionId || !resourceGroupName || !aiName) {
+    res.status(500).send('SUBSCRIPTION_ID or RESOURCE_GROUP_NAME or AI_NAME not specified in environment variable');
+    return;
+  }
+  var url = node_util.format(kustoUrlTemplate, subscriptionId, resourceGroupName, aiName, query);
+  res.redirect(url);
+});
+
+router.get('/debug', function (req, res) {
+  res.json({
+    requestNum: requestNum,
+    cacheMissNum: cacheMissNum
+  });
+});
+
+router.get('/debug/reset', function (req, res) {
+  requestNum = 0;
+  cacheMissNum = 0;
+  res.json({
+    requestNum: requestNum,
+    cacheMissNum: cacheMissNum
+  });
 });
 
 module.exports = router;
 
 /***/ }),
-/* 11 */
+/* 13 */
 /***/ (function(module, exports) {
 
 module.exports = require("request");
 
 /***/ }),
-/* 12 */
+/* 14 */
 /***/ (function(module, exports) {
 
 module.exports = require("util");
 
 /***/ }),
-/* 13 */
-/***/ (function(module, exports, __webpack_require__) {
+/* 15 */
+/***/ (function(module, exports) {
 
-"use strict";
-
-
-module.exports = {
-    api: 'https://e2e-portal-api.azurewebsites.net',
-    startTime: '2018-01-22T06:31:52Z'
-};
+module.exports = require("azure-storage");
 
 /***/ })
 /******/ ]);
