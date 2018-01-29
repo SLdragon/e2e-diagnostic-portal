@@ -76,10 +76,7 @@ module.exports = require("express");
 "use strict";
 
 
-module.exports = {
-    apiDomain: '',
-    apiPort: 3001
-};
+module.exports = {};
 
 /***/ }),
 /* 2 */
@@ -311,7 +308,7 @@ function handle(req, res, init) {
   var storageResourceGroupName = process.env.RESOURCE_GROUP_NAME;
   var iothubConnectionString = process.env.IOTHUB_CONNECTION_STRING;
   if (!iothubConnectionString) {
-    res.sendStatus(500).send('Connection string is not specified.');
+    res.status(500).send('Connection string is not specified.');
     return;
   }
   var m = iothubConnectionString.match(/HostName=([^\.]*)\.azure\-devices\.net/);
@@ -319,7 +316,7 @@ function handle(req, res, init) {
   if (m) {
     storageIoTHubName = m[1];
   } else {
-    res.sendStatus(500).send('IoT Hub Connection string format error.');
+    res.status(500).send('IoT Hub Connection string format error.');
     return;
   }
 
