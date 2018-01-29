@@ -129,6 +129,10 @@ app.use(cors());
 app.use('/api/device', device);
 app.use('/api/metric', metric);
 
+app.get('/', function (req, res) {
+  res.sendFile('./index.html');
+});
+
 app.listen(process.env.PORT || 3001, null, null, function () {
   console.log('listening on ' + process.env.PORT || 3001);
 });
