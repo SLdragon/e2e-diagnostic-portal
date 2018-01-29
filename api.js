@@ -182,7 +182,7 @@ router.get('/', queue({ activeLimit: 1, queuedLimit: -1 }), function (req, res) 
   }
   var connectionString = process.env.IOTHUB_CONNECTION_STRING;
   if (!connectionString) {
-    res.sendStatus(500).send('Connection string is not specified.');
+    res.status(500).send('Connection string is not specified.');
     return;
   }
   var m = connectionString.match(/HostName=([^\.]*)\.azure\-devices\.net/);
